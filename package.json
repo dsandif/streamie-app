@@ -4,11 +4,19 @@
   "description": "A social network",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "start:dev": "npx nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "streamie"
   ],
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.4"
+  },
   "author": "Darien Sandifer",
   "license": "ISC"
 }
