@@ -1,6 +1,20 @@
 version: '3'
 services:
 
+  azure-storage:
+    image: azure-storage
+    build: 
+      context: ./azure-storage
+      dockerfile: Dockerfile
+    container_name: video-storage
+    ports:
+     - "4000:80"
+    environment:
+      - PORT=80
+      - STORAGE_ACCOUNT_NAME=nope
+      - STORAGE_ACCESS_KEY=superNope
+    restart: "no"
+
   video-streaming:
     image: video-streaming
     build: 
