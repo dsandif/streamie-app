@@ -33,5 +33,5 @@ app.get('/video',(req, res)=>{
 })
 
 app.listen(port, () =>{
-  console.log(`Streamie listening on port ${port} 🚀🚀🚀`)
+  console.log(`video streaming microservice up and listening on port ${port} 🚀🚀🚀`)
 })
