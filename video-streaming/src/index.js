@@ -29,7 +29,7 @@ app.get('/video',(req, res)=>{
   const videoReqData = {
     host: VIDEO_STORAGE_HOST,
     port: VIDEO_STORAGE_PORT,
-    path: '/video?path=bmw_love.mp4', // Video path is hard-coded for the moment.
+    path: '/video?path=next_video.mp4', // Video path is hard-coded for the moment. Should show color-bars.
     method: 'GET',
     headers: req.headers
   }
