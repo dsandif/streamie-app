@@ -31,15 +31,14 @@ function connectDb() {
 //
 // Connect to the RabbitMQ server.
 //
-function connectRabbit() {
+async function connectRabbit() {
   console.log(`Connecting to RabbitMQ server at ${RABBIT}.`)
 
-  return amqp.connect(RABBIT) // Connect to the RabbitMQ server.
-      .then(messagingConnection => {
-          console.log("Connected to RabbitMQ.")
-
-          return messagingConnection.createChannel() // Create a RabbitMQ messaging channel.
-      })
+  const messagingConnection = await amqp.connect(RABBIT) // Connect to the RabbitMQ server.
+    
+  console.log("Connected to RabbitMQ.")
+  return await messagingConnection.createChannel() // Create a RabbitMQ messaging channel.
+    
 }
 
 function setupHandlers(app, db, messageChannel){
