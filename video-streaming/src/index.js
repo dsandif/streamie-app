@@ -34,11 +34,11 @@ const VIDEO_STORAGE_PORT = parseInt(process.env.VIDEO_STORAGE_PORT)
 //
 async function connectRabbit() {
   console.log(`Connecting to RabbitMQ server at ${RABBIT}.`)
-
   const connection = await amqp.connect(RABBIT) // Connect to the RabbitMQ server.
-    
   console.log("Connected to RabbitMQ.")
-  return await connection.createChannel()
+  const messageChannel = await connection.createChannel()
+  messageChannel.assertExchange("viewed", "fanout")
+  return messageChannel
 }
 
 //
@@ -49,7 +49,7 @@ function sendViewedMessage(messageChannel, videoPath) {
 
   const msg = { videoPath: videoPath }
   const jsonMsg = JSON.stringify(msg)
-  messageChannel.publish("", "viewed", Buffer.from(jsonMsg)) // Publish message to the viewed queue.
+  messageChannel.publish("viewed", "", Buffer.from(jsonMsg)) // Publish message to the viewed exchange.
 }
 
 //

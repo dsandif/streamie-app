@@ -59,11 +59,24 @@ function setupHandlers(app, db, messageChannel){
         })
   }
 
-  return messageChannel.assertQueue("viewed", {}) // Assert that we have a "viewed" queue.
-      .then(() => {
-          console.log("Asserted that the 'viewed' queue exists.")
-          return messageChannel.consume("viewed", consumeViewedMessage) // Start receiving messages from the "viewed" queue.
-      })
+  return messageChannel.assertExchange("viewed", "fanout") // assert that we have a viewed exchange
+    .then(()=>{
+      return messageChannel.assertQueue("", {exclusive : true}) // creates an anonymous queue
+    })
+    .then((response)=>{
+      const {queue: queueName} = response
+      console.log(`created ${queueName}, binding it to viewed exchange`)
+      return messageChannel.bindQueue(queueName, "viewed", "") //Binds the queue to the exchange
+        .then(()=>{
+          return messageChannel.consume(queueName, consumeViewedMessage)
+        })
+
+    })
+  // return messageChannel.assertQueue("viewed", {}) // Assert that we have a "viewed" queue.
+  //     .then(() => {
+  //         console.log("Asserted that the 'viewed' queue exists.")
+  //         return messageChannel.consume("viewed", consumeViewedMessage) // Start receiving messages from the "viewed" queue.
+  //     })
 }
 
 function startHttpServer(db, messageChannel){
