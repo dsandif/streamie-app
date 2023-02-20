@@ -32,7 +32,6 @@ function connectDb() {
 // Connect to the RabbitMQ server.
 //
 function connectRabbit() {
-
   console.log(`Connecting to RabbitMQ server at ${RABBIT}.`)
 
   return amqp.connect(RABBIT) // Connect to the RabbitMQ server.
@@ -89,15 +88,14 @@ function setupHandlers(app, db, messageChannel){
             
             messageChannel.ack(msg) // If there is no error, acknowledge the message.
         })
-}
+  }
 
-return messageChannel.assertQueue("viewed", {}) // Assert that we have a "viewed" queue.
-    .then(() => {
-        console.log("Asserted that the 'viewed' queue exists.")
-        return messageChannel.consume("viewed", consumeViewedMessage) // Start receiving messages from the "viewed" queue.
-    })
+  return messageChannel.assertQueue("viewed", {}) // Assert that we have a "viewed" queue.
+      .then(() => {
+          console.log("Asserted that the 'viewed' queue exists.")
+          return messageChannel.consume("viewed", consumeViewedMessage) // Start receiving messages from the "viewed" queue.
+      })
 }
-
 function startHttpServer(db, messageChannel){
   return new Promise(resolve=>{
     const app = express()
