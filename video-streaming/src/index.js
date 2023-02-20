@@ -3,8 +3,6 @@ const http = require('http')
 const mongodb = require("mongodb")
 const amqp = require('amqplib')
 
-const app = express()
-
 if (!process.env.PORT) {
   throw new Error("Please specify the port number for the HTTP server with the environment variable PORT.")
 }
@@ -34,14 +32,13 @@ const VIDEO_STORAGE_PORT = parseInt(process.env.VIDEO_STORAGE_PORT)
 //
 // Connect to the RabbitMQ server.
 //
-function connectRabbit() {
+async function connectRabbit() {
   console.log(`Connecting to RabbitMQ server at ${RABBIT}.`)
 
-  return amqp.connect(RABBIT) // Connect to the RabbitMQ server.
-      .then(connection => {
-          console.log("Connected to RabbitMQ.")
-          return connection.createChannel()
-      })
+  const connection = await amqp.connect(RABBIT) // Connect to the RabbitMQ server.
+    
+  console.log("Connected to RabbitMQ.")
+  return await connection.createChannel()
 }
 
 //
@@ -58,92 +55,57 @@ function sendViewedMessage(messageChannel, videoPath) {
 //
 // Setup event handlers.
 //
-function setupHandlers(app, messageChannel) {
+function setupHandlers(app, messageChannel, db) {
   app.get("/video", (req, res) => { // Route for streaming video.
+    const videosCollection = db.collection("videos")
+    const videoId = new mongodb.ObjectId(req.query.id)
+    
+    console.log('fetching video')
+    console.log(`Forwarding video requests to ${VIDEO_STORAGE_HOST}:${VIDEO_STORAGE_PORT}.`)
 
-      const videoPath = "./videos/SampleVideo_1280x720_1mb.mp4"
-      fs.stat(videoPath, (err, stats) => {
-          if (err) {
-              console.error("An error occurred ")
-              res.sendStatus(500)
-              return
+    videosCollection.findOne({ _id: videoId })
+      .then(videoRecord => {
+        if (!videoRecord) {
+          res.sendStatus(404)
+          return
+        }
+
+        console.log(`translated id to path ${videoRecord.videoPath}.`)
+
+        const videoReqData = {
+          host: VIDEO_STORAGE_HOST,
+          port: VIDEO_STORAGE_PORT,
+          path: `/video?path=${videoRecord.videoPath}`,
+          method: 'GET',
+          headers: req.headers
+        }
+
+        const forwardRequest = http.request(
+          videoReqData,
+          forwardResponse => {
+            res.writeHeader(forwardResponse.statusCode, forwardResponse.headers)
+            forwardResponse.pipe(res)
           }
-  
-          res.writeHead(200, {
-              "Content-Length": stats.size,
-              "Content-Type": "video/mp4",
-          })
-  
-          fs.createReadStream(videoPath).pipe(res)
-          sendViewedMessage(messageChannel, videoPath) // Send message to "history" microservice that this video has been "viewed".
+        )
+
+        req.pipe(forwardRequest)
+        sendViewedMessage(messageChannel, videoRecord.videoPath) // Send viewed message to history microservice
+      })
+      .catch(err => {
+        console.error("Database query failed")
+        console.error(err && err.stack || err)
+        res.sendStatus(500)
       })
   })
 }
 
-// function main(){
-//   return mongodb.MongoClient.connect(DBHOST)
-//     .then(client=>{
-//       const db = client.db(DBNAME)
-//       const videosCollection = db.collection("videos")
-
-//       app.get('/video',(req, res)=>{
-//         const videoId = new mongodb.ObjectId(req.query.id)
-
-//         console.log('fetching video')
-//         console.log(`Forwarding video requests to ${VIDEO_STORAGE_HOST}:${VIDEO_STORAGE_PORT}.`)
-        
-//         videosCollection.findOne({_id: videoId})
-//           .then(videoRecord =>{
-//             if(!videoRecord){
-//               res.sendStatus(404)
-//               return
-//             }
-            
-//             console.log(`translated id to path ${videoRecord.videoPath}.`)
-
-//             const videoReqData = {
-//               host: VIDEO_STORAGE_HOST,
-//               port: VIDEO_STORAGE_PORT,
-//               path: `/video?path=${videoRecord.videoPath}`, // Video path is hard-coded for the moment. Should show color-bars.
-//               method: 'GET',
-//               headers: req.headers
-//             }
-
-//             const forwardRequest = http.request( // Forward the request to the video storage microservice.
-//               videoReqData,
-//               forwardResponse => {
-//                 res.writeHeader(forwardResponse.statusCode, forwardResponse.headers)
-//                 forwardResponse.pipe(res)
-//               }
-//             )
-            
-//             req.pipe(forwardRequest)
-//             sendViewedMessage(videoRecord.videoPath) // Send viewed message to history microservice
-//           })
-//           .catch(err=>{
-//             console.error("Database query failed")
-//             console.error(err && err.stack || err)
-//             res.sendStatus(500)
-//           })
-//       })
-
-//       app.get('/',(req, res)=>{
-//         res.send("Streamie app")
-//       })
-      
-//       app.listen(PORT, () =>{
-//         console.log(`microservice online 🚀🚀🚀`)
-//       })
-//   })
-// }
-
 //
 // Start the HTTP server.
 //
-function startHttpServer(messageChannel) {
+function startHttpServer(messageChannel, db) {
   return new Promise(resolve => { // Wrap in a promise so we can be notified when the server has started.
       const app = express()
-      setupHandlers(app, messageChannel)
+      setupHandlers(app, messageChannel, db)
 
       const port = process.env.PORT && parseInt(process.env.PORT) || 3000
       app.listen(port, () => {
@@ -153,7 +115,7 @@ function startHttpServer(messageChannel) {
 }
 
 // //
-// // Send viewed message to the history microservice.
+// // Send direct message to the history microservice.
 // //
 // function sendViewedMessage(videoPath) {
 //   const postOptions = {
@@ -187,11 +149,12 @@ function startHttpServer(messageChannel) {
 //
 // Application entry point.
 //
-function main() {
-  return connectRabbit()
-      .then(messageChannel => {
-          return startHttpServer(messageChannel)
-      })
+async function main() {
+  const client = await mongodb.MongoClient
+    .connect(DBHOST)
+  const db = client.db(DBNAME)
+  const messageChannel = await connectRabbit()
+  return await startHttpServer(messageChannel, db)
 }
 
 main()
