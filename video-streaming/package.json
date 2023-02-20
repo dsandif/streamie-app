@@ -12,6 +12,7 @@
     "streamie"
   ],
   "dependencies": {
+    "amqplib": "^0.10.3",
     "express": "^4.17.11",
     "mongodb": "^5.0.0"
   },
