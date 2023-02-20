@@ -1,6 +1,6 @@
 const express = require('express')
 const http = require('http')
-const mongodb = require("mongodb");
+const mongodb = require("mongodb")
 
 const app = express()
 
@@ -31,17 +31,20 @@ function main(){
       const videosCollection = db.collection("videos")
 
       app.get('/video',(req, res)=>{
-        console.log(`Forwarding video requests to ${VIDEO_STORAGE_HOST}:${VIDEO_STORAGE_PORT}.`)
         const videoId = new mongodb.ObjectId(req.query.id)
+
+        console.log('fetching video')
+        console.log(`Forwarding video requests to ${VIDEO_STORAGE_HOST}:${VIDEO_STORAGE_PORT}.`)
         
-        videosCollection
-          .findOne({_id: videoId})
-            .then(videoRecord =>{
-              if(!videoRecord){
-                res.sendStatus(404)
-                return
-              }
+        videosCollection.findOne({_id: videoId})
+          .then(videoRecord =>{
+            if(!videoRecord){
+              res.sendStatus(404)
+              return
+            }
             
+            console.log(`translated id to path ${videoRecord.videoPath}.`)
+
             const videoReqData = {
               host: VIDEO_STORAGE_HOST,
               port: VIDEO_STORAGE_PORT,
@@ -53,17 +56,18 @@ function main(){
             const forwardRequest = http.request( // Forward the request to the video storage microservice.
               videoReqData,
               forwardResponse => {
-                  res.writeHeader(forwardResponse.statusCode, forwardResponse.headers)
-                  forwardResponse.pipe(res)
+                res.writeHeader(forwardResponse.statusCode, forwardResponse.headers)
+                forwardResponse.pipe(res)
               }
             )
-          
+            
             req.pipe(forwardRequest)
+            sendViewedMessage(videoRecord.videoPath) // Send viewed message to history microservice
           })
           .catch(err=>{
             console.error("Database query failed")
-            console.error(err && err.stack || err);
-            res.sendStatus(500);
+            console.error(err && err.stack || err)
+            res.sendStatus(500)
           })
       })
 
@@ -75,6 +79,38 @@ function main(){
         console.log(`microservice online 🚀🚀🚀`)
       })
   })
+}
+
+//
+// Send viewed message to the history microservice.
+//
+function sendViewedMessage(videoPath) {
+  const postOptions = {
+      method: "POST",
+      headers: {
+          "Content-Type": "application/json",
+      },
+  }
+  const requestBody = {
+      videoPath: videoPath 
+  }
+
+  const req = http.request( // Send the message
+      "http://history/viewed",
+      postOptions
+  )
+
+  req.on("close", () => {
+      console.log("Sent 'viewed' message to history microservice.")
+  })
+
+  req.on("error", (err) => {
+      console.error("Failed to send 'viewed' message!")
+      console.error(err && err.stack || err)
+  })
+
+  req.write(JSON.stringify(requestBody)) // Write the body to the request.
+  req.end() // End the request.
 }
 
 main()
