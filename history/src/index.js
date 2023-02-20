@@ -45,37 +45,7 @@ function connectRabbit() {
 function setupHandlers(app, db, messageChannel){
   const videosCollection = db.collection("videos")
 
-  app.post("/viewed", (req, res) => { // Handles the "viewed" message
-      const videoPath = req.body.videoPath
-      
-      videosCollection.insertOne({ videoPath: videoPath }) // saves the "view"
-          .then(() => {
-              console.log(`Added video ${videoPath} to history.`)
-              res.sendStatus(200)
-          })
-          .catch(err => {
-              console.error(`Error adding video ${videoPath} to history.`)
-              console.error(err && err.stack || err)
-              res.sendStatus(500)
-          })
-  })
-
-  app.get("/history", (req, res) => {
-      const skip = parseInt(req.query.skip)
-      const limit = parseInt(req.query.limit)
-      videosCollection.find()
-          .skip(skip)
-          .limit(limit)
-          .toArray()
-          .then(documents => {
-              res.json({ history: documents })
-          })
-          .catch(err => {
-              console.error(`Error retrieving history from database.`)
-              console.error(err && err.stack || err)
-              res.sendStatus(500)
-          })
-  })
+  //.::Other routes::.
 
   function consumeViewedMessage(msg) { // Handler for coming messages.
     console.log("Received a 'viewed' message")
@@ -96,6 +66,7 @@ function setupHandlers(app, db, messageChannel){
           return messageChannel.consume("viewed", consumeViewedMessage) // Start receiving messages from the "viewed" queue.
       })
 }
+
 function startHttpServer(db, messageChannel){
   return new Promise(resolve=>{
     const app = express()
